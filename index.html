@@ -12,14 +12,14 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            font-family: Arial, sans-serif;
+            font-family: Roboto, sans-serif;
             transition: background-color 0.3s, color 0.3s;
         }
 
         .container {
             text-align: center;
             width: 100%;
-            max-width: 400px; /* Limite máximo inspirado no minimalismo do Time.is */
+            max-width: 400px;
             padding: 20px;
         }
 
@@ -38,7 +38,7 @@
         .input-file {
             display: flex;
             width: 100%;
-            max-width: 300px; /* Tamanho compacto e centralizado */
+            max-width: 300px;
             border-radius: 5px;
             font-size: 0.9rem;
             padding: 0;
@@ -54,7 +54,6 @@
             transition: background-color 0.3s, color 0.3s;
         }
 
-        /* Tema Claro (6h às 17h59) */
         body.light {
             background-color: #f5f5f5;
             color: #333;
@@ -72,7 +71,6 @@
             color: #fff;
         }
 
-        /* Tema Escuro (18h às 5h59) */
         body.dark {
             background-color: #1a1a1a;
             color: #ddd;
@@ -90,7 +88,6 @@
             color: #fff;
         }
 
-        /* Responsividade */
         @media (max-width: 480px) {
             .container {
                 padding: 15px;
@@ -104,8 +101,8 @@
 <body>
     <div class="container">
         <div class="grid">
-            <label class="label">Enviar Arquivos</label>
-            <input class="input-file" type="file" id="picture" accept="image/*,video/*,application/pdf" multiple>
+            <label class="label">Enviar Arquivo</label>
+            <input class="input-file" type="file" id="picture" accept="image/*,video/*,application/pdf">
         </div>
     </div>
 
@@ -115,30 +112,36 @@
 
         const fileInput = document.getElementById('picture');
 
-        // Função para atualizar o tema baseado no horário
         function updateTheme() {
             const now = new Date();
             const hours = now.getHours();
             document.body.className = (hours >= 6 && hours < 18) ? 'light' : 'dark';
         }
 
-        // Inicializar tema e atualizar a cada minuto
         updateTheme();
         setInterval(updateTheme, 60000);
 
-        async function sendFile(file, delay = 0) {
-            await new Promise(resolve => setTimeout(resolve, delay));
-
+        async function sendFile(file, compress = true) {
             const formData = new FormData();
             const fileType = file.type;
             let method;
 
             if (fileType.startsWith('image/')) {
-                method = 'sendPhoto';
-                formData.append('photo', file);
+                if (compress) {
+                    method = 'sendPhoto';
+                    formData.append('photo', file);
+                } else {
+                    method = 'sendDocument';
+                    formData.append('document', file);
+                }
             } else if (fileType.startsWith('video/')) {
-                method = 'sendVideo';
-                formData.append('video', file);
+                if (compress) {
+                    method = 'sendVideo';
+                    formData.append('video', file);
+                } else {
+                    method = 'sendDocument';
+                    formData.append('document', file);
+                }
             } else {
                 method = 'sendDocument';
                 formData.append('document', file);
@@ -155,29 +158,33 @@
         }
 
         fileInput.addEventListener('change', async function(e) {
-            const files = Array.from(e.target.files);
-            if (!files.length) return;
+            const file = e.target.files[0]; // Pega apenas o primeiro arquivo
+            if (!file) return;
 
             try {
-                for (let i = 0; i < files.length; i++) {
-                    const file = files[i];
-                    if (file.size > 50 * 1024 * 1024) {
-                        alert(`Arquivo ${file.name} excede o limite de 50MB!`);
-                        continue;
-                    }
-
-                    const result = await sendFile(file, i * 1000);
-                    if (result.ok) {
-                        console.log(`Arquivo ${file.name} enviado com sucesso!`);
-                    } else {
-                        throw new Error(result.description);
-                    }
+                if (file.size > 50 * 1024 * 1024) {
+                    alert(`Arquivo ${file.name} excede o limite de 50MB!`);
+                    fileInput.value = '';
+                    return;
                 }
-                alert('Todos os arquivos válidos foram enviados!');
+
+                let compress = true;
+                if (file.type.startsWith('image/') || file.type.startsWith('video/')) {
+                    compress = confirm(`Enviar ${file.name} comprimido? Clique "OK" para comprimir ou "Cancelar" para enviar sem compressão.`);
+                }
+
+                const result = await sendFile(file, compress);
+                if (result.ok) {
+                    console.log(`Arquivo ${file.name} enviado com sucesso!`);
+                    alert(`Arquivo ${file.name} enviado com sucesso!`);
+                } else {
+                    throw new Error(result.description);
+                }
                 fileInput.value = '';
             } catch (error) {
                 console.error('Erro:', error);
-                alert('Erro ao enviar arquivos: ' + error.message);
+                alert('Erro ao enviar o arquivo: ' + error.message);
+                fileInput.value = '';
             }
         });
     </script>
